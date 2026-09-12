@@ -38,42 +38,102 @@ function ago(dateString: string) {
   return `${days}d ago`;
 }
 
+function hostname(link: string) {
+  try {
+    return new URL(link).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+type Story = { title: string; link: string; source: string; age: string; copy: string };
+
+function parseFeed(xml: string, fallbackSource: string): Story[] {
+  const items = xml.match(/<item[\s\S]*?<\/item>/g) ?? xml.match(/<entry[\s\S]*?<\/entry>/g) ?? [];
+  return items
+    .map((item) => {
+      const title = tag(item, "title");
+      let link = tag(item, "link");
+      if (!link) link = item.match(/<link[^>]*href="([^"]+)"/i)?.[1] ?? "";
+      const source = tag(item, "source") || hostname(link) || fallbackSource;
+      const copy = decode(tag(item, "description") || tag(item, "summary")).slice(0, 180);
+      return {
+        title,
+        link,
+        source,
+        age: ago(tag(item, "pubDate") || tag(item, "updated") || tag(item, "published")),
+        copy: copy || title,
+      };
+    })
+    .filter((story) => story.title && story.link);
+}
+
+async function firstWorkingFeed(urls: string[], fallbackSource: string) {
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          accept: "application/rss+xml, application/xml, text/xml, */*",
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        },
+      });
+      if (!res.ok) continue;
+      const xml = await res.text();
+      const stories = parseFeed(xml, fallbackSource);
+      if (stories.length) return stories;
+    } catch {
+      /* try the next source */
+    }
+  }
+  return [] as Story[];
+}
+
+function googleUrl(country: string, topic: string, query?: string) {
+  const base = `hl=en&gl=${country}&ceid=${country}:en`;
+  if (topic === "All") return `https://news.google.com/rss?${base}`;
+  if (topic === "National") return `https://news.google.com/rss/headlines/section/topic/NATION?${base}`;
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(query ?? topic)}&${base}`;
+}
+
+function bingUrl(query: string) {
+  return `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=RSS`;
+}
+
 export const getNews = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => input.parse(data))
   .handler(async ({ data }) => {
     const country = (data.country || "US").toUpperCase();
-    const gl = country;
-    const base = `hl=en&gl=${gl}&ceid=${gl}:en`;
+    const place = data.place;
 
-    let url: string;
-    if (data.topic === "All") {
-      url = `https://news.google.com/rss?${base}`;
-    } else if (data.topic === "National") {
-      url = `https://news.google.com/rss/headlines/section/topic/NATION?${base}`;
-    } else if (data.topic === "Politics") {
-      url = `https://news.google.com/rss/search?q=politics&${base}`;
-    } else if (data.topic === "Weather") {
-      const query = data.place ? `weather ${data.place}` : "weather forecast";
-      url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${base}`;
-    } else {
-      const query = data.place ? `${data.place} news` : "local news";
-      url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${base}`;
-    }
+    const query =
+      data.topic === "Weather"
+        ? place
+          ? `weather ${place}`
+          : "weather forecast"
+        : data.topic === "Local"
+          ? place
+            ? `${place} news`
+            : "local news"
+          : data.topic === "Politics"
+            ? "politics"
+            : data.topic === "National"
+              ? "national news"
+              : "top stories";
 
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; FernReader/1.0)" } });
-    if (!res.ok) throw new Error("News feed unavailable");
-    const xml = await res.text();
+    const candidates = [
+      googleUrl(country, data.topic, query),
+      bingUrl(query),
+      ...(data.topic === "Politics"
+        ? ["https://feeds.npr.org/1014/rss.xml"]
+        : data.topic === "Weather"
+          ? ["https://www.accuweather.com/en/rss", "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"]
+          : data.topic === "National"
+            ? ["https://feeds.npr.org/1003/rss.xml"]
+            : ["https://feeds.bbci.co.uk/news/rss.xml"]),
+    ];
 
-    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
-    return items.slice(0, 9).map((item) => {
-      const source = tag(item, "source");
-      const title = tag(item, "title");
-      return {
-        title,
-        link: tag(item, "link"),
-        source: source || data.topic,
-        age: ago(tag(item, "pubDate")),
-        copy: decode(tag(item, "description")).slice(0, 180) || title,
-      };
-    });
+    const stories = await firstWorkingFeed(candidates, data.topic);
+    if (!stories.length) throw new Error("News feed unavailable");
+    return stories.slice(0, 9);
   });
