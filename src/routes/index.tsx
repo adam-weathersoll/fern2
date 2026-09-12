@@ -118,7 +118,11 @@ function Index() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const query = String(data.get("query") ?? "").trim();
-    if (query) window.location.assign(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
+    if (query) {
+      const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      // If running inside your Electron webview with window bridge, or open new tab target:
+      window.open(targetUrl, "_blank");
+    }
   };
 
   const requestLocation = () => {
