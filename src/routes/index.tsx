@@ -75,7 +75,7 @@ function Index() {
   const greeting = !now ? "Good afternoon." : now.getHours() < 12 ? "Good morning." : now.getHours() < 18 ? "Good afternoon." : "Good evening.";
   const date = now?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) ?? "Saturday, September 12";
   const time = now?.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) ?? "01:42 PM";
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zone = now ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-background font-sans text-foreground">
