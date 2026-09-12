@@ -114,14 +114,19 @@ function Index() {
       }),
   });
 
-  const search = (event: FormEvent<HTMLFormElement>) => {
+ const search = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const query = String(data.get("query") ?? "").trim();
     if (query) {
       const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-      // If running inside your Electron webview with window bridge, or open new tab target:
-      window.open(targetUrl, "_blank");
+      
+      // Check if running inside our custom Electron Fern browser
+      if ((window as any).fernAPI) {
+        (window as any).fernAPI.openNewTab(targetUrl);
+      } else {
+        window.location.assign(targetUrl);
+      }
     }
   };
 
