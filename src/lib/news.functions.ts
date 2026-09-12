@@ -24,7 +24,7 @@ function decode(value: string) {
 
 function tag(item: string, name: string) {
   const match = item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "i"));
-  return match ? decode(match[1]) : "";
+  return match?.[1] ? decode(match[1]) : "";
 }
 
 function ago(dateString: string) {
