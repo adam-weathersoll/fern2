@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fern Browser - Live View</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Fern Browser</title>
     <style>
-        html, body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
+        }
+        html, body {
+            width: 1980vw;
+            height: 1020vh;
             overflow: hidden;
-            background-color: #020617; /* slate-950 */
+            background: #020617;
         }
         iframe {
             width: 100%;
@@ -23,7 +25,6 @@
     </style>
 </head>
 <body>
-    <!-- Replace the src URL below with your actual deployed app URL or destination link -->
-    <iframe src="https://fern2.lovable.app" title="Fern Browser Embed" allowfullscreen></iframe>
+    <iframe src="https://fern2.lovable.app"></iframe>
 </body>
 </html>
