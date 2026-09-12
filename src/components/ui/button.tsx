@@ -16,6 +16,10 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        glass: "border border-border bg-glass text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
+        location: "border border-location bg-location text-foreground shadow-none hover:bg-location-hover",
+        filter: "border border-border bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
+        filterActive: "border border-filter-active bg-filter-active text-foreground shadow-none hover:bg-filter-active/90",
       },
       size: {
         default: "h-9 px-4 py-2",
