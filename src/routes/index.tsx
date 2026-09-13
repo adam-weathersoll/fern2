@@ -14,7 +14,7 @@ import {
   Sparkles,
   Wind,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -99,10 +99,12 @@ function Index() {
     queryKey: ["weather", prefs.coords?.lat, prefs.coords?.lon, prefs.units],
     enabled: ready && !!prefs.coords,
     staleTime: 5 * 60_000,
-    queryFn: () =>
-      fetchWeather({
-        data: { lat: prefs.coords!.lat, lon: prefs.coords!.lon, units: prefs.units },
-      }),
+    queryFn: () => {
+      if (!prefs.coords) throw new Error("Location is required for weather");
+      return fetchWeather({
+        data: { lat: prefs.coords.lat, lon: prefs.coords.lon, units: prefs.units },
+      });
+    },
   });
 
   const news = useQuery({
@@ -128,7 +130,7 @@ function Index() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const openExternalLink = (event: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+  const openExternalLink = (event: MouseEvent<HTMLAnchorElement>, url: string) => {
     if (!(window as FernWindow).fernAPI) return;
     event.preventDefault();
     openInNewTab(url);
