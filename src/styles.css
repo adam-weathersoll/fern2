@@ -69,6 +69,7 @@
   --color-status: var(--status);
   --font-sans: "Manrope", sans-serif;
   --shadow-status: 0 0 0 6px color-mix(in oklab, var(--status) 12%, transparent), 0 0 14px var(--status);
+  --shadow-search: 0 18px 60px oklch(0.03 0.01 210 / 32%), 0 0 0 3px color-mix(in oklab, var(--ring) 14%, transparent);
 }
 
 :root {
