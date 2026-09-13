@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Bell,
+  ArrowUpRight,
   CalendarDays,
   Compass,
   Droplets,
@@ -13,7 +14,7 @@ import {
   Sparkles,
   Wind,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,9 @@ export const Route = createFileRoute("/")({
 type Units = "auto" | "metric" | "imperial";
 type Coords = { lat: number; lon: number };
 type Prefs = { name: string; units: Units; coords: Coords | null };
+type FernWindow = Window & {
+  fernAPI?: { openNewTab: (url: string) => void };
+};
 
 const STORAGE_KEY = "fern:prefs";
 const FILTERS = ["All", "Weather", "Politics", "Local", "National"] as const;
@@ -68,6 +72,7 @@ function Index() {
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchWeather = useServerFn(getWeather);
   const fetchNews = useServerFn(getNews);
@@ -94,10 +99,12 @@ function Index() {
     queryKey: ["weather", prefs.coords?.lat, prefs.coords?.lon, prefs.units],
     enabled: ready && !!prefs.coords,
     staleTime: 5 * 60_000,
-    queryFn: () =>
-      fetchWeather({
-        data: { lat: prefs.coords!.lat, lon: prefs.coords!.lon, units: prefs.units },
-      }),
+    queryFn: () => {
+      if (!prefs.coords) throw new Error("Location is required for weather");
+      return fetchWeather({
+        data: { lat: prefs.coords.lat, lon: prefs.coords.lon, units: prefs.units },
+      });
+    },
   });
 
   const news = useQuery({
@@ -114,19 +121,27 @@ function Index() {
       }),
   });
 
- const search = (event: FormEvent<HTMLFormElement>) => {
+  const openInNewTab = (url: string) => {
+    const fernAPI = (window as FernWindow).fernAPI;
+    if (fernAPI) {
+      fernAPI.openNewTab(url);
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const openExternalLink = (event: MouseEvent<HTMLAnchorElement>, url: string) => {
+    if (!(window as FernWindow).fernAPI) return;
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const query = String(data.get("query") ?? "").trim();
+    openInNewTab(url);
+  };
+
+  const search = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
     if (query) {
       const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-      
-      // Check if running inside our custom Electron Fern browser
-      if ((window as any).fernAPI) {
-        (window as any).fernAPI.openNewTab(targetUrl);
-      } else {
-        window.location.assign(targetUrl);
-      }
+      openInNewTab(targetUrl);
     }
   };
 
@@ -183,10 +198,27 @@ function Index() {
           <p className="flex items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-subtle"><Sparkles className="h-3 w-3" /> A calmer place to start</p>
           <h1 className="mt-4 text-5xl font-semibold leading-none tracking-normal md:text-[64px]">{greeting}</h1>
           <p className="mt-4 flex min-h-5 items-center justify-center gap-2 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" /> {date}</p>
-          <form onSubmit={search} className="mt-9 flex h-14 items-center gap-3 rounded-2xl border border-border bg-search px-4 shadow-2xl backdrop-blur-xl">
-            <Search className="h-5 w-5 text-muted-foreground" />
-            <input name="query" aria-label="Search the web" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" placeholder="Search the web" />
-            <kbd className="grid h-7 w-7 place-items-center rounded-md border border-border text-xs text-muted-foreground">↵</kbd>
+          <form onSubmit={search} className="group mx-auto mt-9 flex h-14 w-full max-w-[640px] items-center gap-2 rounded-2xl border border-border bg-search px-2.5 shadow-2xl backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-300 ease-out focus-within:-translate-y-0.5 focus-within:border-ring focus-within:shadow-search">
+            <Search className="ml-2 h-5 w-5 shrink-0 text-muted-foreground transition-colors duration-300 group-focus-within:text-foreground" />
+            <input
+              name="query"
+              aria-label="Search the web"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-full min-w-0 flex-1 bg-transparent px-1 text-center text-sm outline-none transition-[color,opacity] duration-300 placeholder:text-muted-foreground focus:text-foreground"
+              placeholder="Search the web"
+            />
+            <Button
+              type="submit"
+              variant="glass"
+              size="icon"
+              aria-label="Open search in a new tab"
+              disabled={!searchQuery.trim()}
+              className="h-9 w-9 shrink-0 rounded-lg transition-[opacity,transform,background-color] duration-300 enabled:hover:scale-105"
+            >
+              <ArrowUpRight className="transition-transform duration-300 group-focus-within:-translate-y-0.5 group-focus-within:translate-x-0.5" />
+            </Button>
           </form>
         </section>
 
@@ -249,9 +281,9 @@ function Index() {
         <section className="mt-16">
           <div className="flex items-end justify-between">
             <div><p className="eyebrow">Stay in the loop</p><h2 className="mt-3 text-3xl font-light">New articles</h2></div>
-            <a href="https://news.google.com/" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">Open news <ExternalLink className="h-3 w-3" /></a>
+            <a href="https://news.google.com/" target="_blank" rel="noopener noreferrer" onClick={(event) => openExternalLink(event, "https://news.google.com/")} className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">Open news <ExternalLink className="h-3 w-3" /></a>
           </div>
-          <div className="mt-7 flex flex-wrap gap-2">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
             {FILTERS.map((filter) => (
               <Button
                 key={filter}
@@ -276,7 +308,8 @@ function Index() {
                 key={story.link}
                 href={story.link}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
+                onClick={(event) => openExternalLink(event, story.link)}
                 className="news-card block min-h-36 p-5 transition-transform hover:-translate-y-0.5"
               >
                 <div className="flex justify-between gap-3">
